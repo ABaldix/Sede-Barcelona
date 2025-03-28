@@ -12,10 +12,6 @@ El repositorio está diseñado para contener:
 - Informes y archivos relevantes.
 - Recursos organizativos y administrativos del grupo.
 
-## ℹ️ Instrucciones de Uso
-- **Acceso**: Los profesores podrán visualizar la documentación, pero no realizar modificaciones.
-- **Edición**: Solo los integrantes del grupo tienen permisos para modificar los archivos.
-
 ## ⚙️ Tecnologías Usadas
 Este repositorio no contiene código. Su propósito es exclusivamente la organización y consulta de documentación.
 
