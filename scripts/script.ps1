@@ -10,7 +10,7 @@ Foreach ($usuario in $usuarios) {
     $sede = $usuario.sede
     $departamento = $usuario.dept
     $descripcion = $usuario.descrip
-
+if ($departamento -eq "Barcelona"){    
     # Username variables
     $usrName = ($nom.Substring(0,1) + $apellido1).ToLower()
 
@@ -18,33 +18,9 @@ Foreach ($usuario in $usuarios) {
     Write-Host "[USUARIO] " -ForegroundColor Blue -NoNewline
     Write-Host "Creando usuario $usrName con su departamento $departamento..."
 
-
-    #------------------------------------------------------------------#
-    # Comprobar su departamento, solo crear OU si es de sede Barcelona #
-    #------------------------------------------------------------------#
-
     # Variables
-    $ouString = "OU=Empresa,DC=barcelona,DC=lan"
+    $ouString = "OU=$departamento,OU=Empresa,DC=barcelona,DC=lan"
     $getOU = Get-ADOrganizationalUnit -SearchBase $ouString -Filter {Name -eq $departamento}
-
-    if ($getOU -eq $null) {
-        if ($sede -ne "barcelona") {
-            Write-Host "[OU] " -ForegroundColor DarkRed -NoNewline
-            Write-Host "Su sede no es Barcelona, continuando con el siguiente..."
-            Continue
-        }
-        Write-Host "[OU] " -ForegroundColor DarkRed -NoNewline
-        Write-Host "No existe un OU para el departamento $departamento, creandolo ahora..."
-
-        New-ADOrganizationalUnit -Name $departamento -Path $ouString -ProtectedFromAccidentalDeletion $False
-
-        Write-Host "[OU] " -ForegroundColor DarkRed -NoNewline
-        Write-Host "OU $departamento creado con exito, continuando..."
-    } else {
-        Write-Host "[OU] " -ForegroundColor DarkRed -NoNewline
-        Write-Host "Ya existe un OU para el departamento $departamento, continuando con el siguiente..."
-    }
-
 
     #--------------------------------------------#
     # Comprobar si existe su grupo, si no crealo #
@@ -133,4 +109,8 @@ Foreach ($usuario in $usuarios) {
         Write-Host "[USUARIO] " -ForegroundColor Blue -NoNewline
         Write-Host "Ya existe el usuario $usrName, continuando con el siguiente..."
     }
+    }
+
+
+
 }
