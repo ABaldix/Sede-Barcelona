@@ -12,25 +12,25 @@ Foreach ($usuario in $usuarios) {
     $descripcion = $usuario.descrip
 
     # Username variables
-    $usrName = ($nom.Substring(0,3) + $apellido1.Substring(0,3) + $apellido2.Substring(0,3)).ToLower()
+    $usrName = ($nom.Substring(0,1) + $apellido1).ToLower()
 
     Write-Host ""
     Write-Host "[USUARIO] " -ForegroundColor Blue -NoNewline
     Write-Host "Creando usuario $usrName con su departamento $departamento..."
 
 
-    #--------------------------------------------------------------#
-    # Comprobar su departamento, solo crear OU si es de sede Alcoy #
-    #-------------------------------------------------------------#
+    #------------------------------------------------------------------#
+    # Comprobar su departamento, solo crear OU si es de sede Barcelona #
+    #------------------------------------------------------------------#
 
     # Variables
-    $ouString = "OU=Alcoy,DC=alcoi,DC=lan"
+    $ouString = "OU=Empresa,DC=barcelona,DC=lan"
     $getOU = Get-ADOrganizationalUnit -SearchBase $ouString -Filter {Name -eq $departamento}
 
     if ($getOU -eq $null) {
-        if ($sede -ne "Alcoi") {
+        if ($sede -ne "barcelona") {
             Write-Host "[OU] " -ForegroundColor DarkRed -NoNewline
-            Write-Host "Su sede no es Alcoi, continuando con el siguiente..."
+            Write-Host "Su sede no es Barcelona, continuando con el siguiente..."
             Continue
         }
         Write-Host "[OU] " -ForegroundColor DarkRed -NoNewline
@@ -49,14 +49,14 @@ Foreach ($usuario in $usuarios) {
     #--------------------------------------------#
     # Comprobar si existe su grupo, si no crealo #
     #--------------------------------------------#
-
+    
     # Variables
     $grp = "gg" + $departamento
     $getGg = Get-ADGroup -SearchBase $ouString -Filter {Name -eq $grp}
 
     if ($descripcion -eq "Jefe") {
         $grp = "ggJefe" + $departamento
-        $jefeOUString = "OU=$departamento,OU=Alcoy,DC=alcoi,DC=lan"
+        $jefeOUString = "OU=$departamento,OU=Barcelona,DC=barcelona,DC=lan"
         $getJefeGg = Get-ADGroup -SearchBase $jefeOUString -Filter {Name -eq $grp}
 
         if ($getJefeGg -eq $null) {
@@ -93,10 +93,10 @@ Foreach ($usuario in $usuarios) {
 
     # Variables
     $surName = $apellido1 + " " + $apellido2
-    $principalName = $usrName + "@alcoi.lan"
-    $passFormat = "Alcoy@1234"
+    $principalName = $usrName + "@barcelona.lan"
+    $passFormat = "Batoi@1234"
     $pass = ConvertTo-SecureString $passFormat -AsPlainText -Force
-    $carpPers = "\\alcoi.lan\DatosAlcoy\AdminDominio\CarpPers\" + $usrName
+    $carpPers = "\\barcelona.lan\DatosBarcelona\AdminDominio\CarpPers\" + $usrName
 
     $getUsr = Get-ADUser -SearchBase $ouString -Filter {SamAccountName -eq $usrName}
 
@@ -105,19 +105,13 @@ Foreach ($usuario in $usuarios) {
             Write-Host "No existe el usuario $usrName, creandolo ahora..."
         if ($departamento -eq "Comercial") {
             # Variables
-            $homeDirUsr = "\\alcoi.lan\DatosAlcoy\AdminDominio\PerfMov\" + $usrName
+            $homeDirUsr = "\\barcelona.lan\DatosBarcelona\AdminDominio\PerfMov\" + $usrName
 
-            # Create user profile path (CarpPers)
-            #New-Item -Path "${letra}:\SedeAlcoy\PerfMov\" -Name $usrName -ItemType Directory -Force
-
-            # Assign user to perms
-            #icacls "${letra}:\SedeAlcoy\PerfMov\$usrName" /grant $($usrName):(OI)(CI)F /T
-
-            New-ADUser -GivenName $nom -Surname $surName -Name $nom -UserPrincipalName $principalName -DisplayName $displayName -Description $descripcion -Office $departamento -SamAccountName $usrName -AccountPassword $pass -ChangePasswordAtLogon $False -Enabled $True -Path "OU=$departamento,OU=Alcoy,DC=alcoi,DC=lan" -ProfilePath $homeDirUsr -HomeDrive "Z" -HomeDirectory $homeDirUsr
+            New-ADUser -GivenName $nom -Surname $surName -Name $nom -UserPrincipalName $principalName -DisplayName $displayName -Description $descripcion -Office $departamento -SamAccountName $usrName -AccountPassword $pass -ChangePasswordAtLogon $False -Enabled $True -Path "OU=$departamento,OU=Barcelona,DC=barcelona,DC=lan" -ProfilePath $homeDirUsr -HomeDrive "Z" -HomeDirectory $homeDirUsr
         } else {
-            $ObligHomeDir = "\\alcoi.lan\DatosAlcoy\AdminDominio\PerfOblig\"
+            $ObligHomeDir = "\\barcelona.lan\DatosBarcelona\AdminDominio\PerfOblig\"
 
-            New-ADUser -GivenName $nom -Surname $surName -Name $nom -UserPrincipalName $principalName -DisplayName $displayName -Description $descripcion -Office $departamento -SamAccountName $usrName -AccountPassword $pass -ChangePasswordAtLogon $False -Enabled $True -Path "OU=$departamento,OU=Alcoy,DC=alcoi,DC=lan" -ProfilePath $ObligHomeDir -HomeDrive "Z" -HomeDirectory $homeDirUsr
+            New-ADUser -GivenName $nom -Surname $surName -Name $nom -UserPrincipalName $principalName -DisplayName $displayName -Description $descripcion -Office $departamento -SamAccountName $usrName -AccountPassword $pass -ChangePasswordAtLogon $False -Enabled $True -Path "OU=$departamento,OU=Barcelona,DC=barcelona,DC=lan" -ProfilePath $ObligHomeDir -HomeDrive "Z" -HomeDirectory $homeDirUsr
         }
 
         Write-Host "[USUARIO] " -ForegroundColor Blue -NoNewline
