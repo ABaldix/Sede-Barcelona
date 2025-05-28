@@ -28,7 +28,7 @@ La edición y actualización de los archivos está reservada exclusivamente a lo
 Este repositorio es **público**, permitiendo a cualquier usuario visualizar la documentación.
 
 ## 🔗 Enlaces
-- [Enlace a trello](https://trello.com/b/cEb8jhJT/sede-madrid)
+- [Enlace a trello](https://trello.com/b/cEb8jhJT/sede-barcelona)
 
 ---
 Si tienes alguna duda, no dudes en contactar con los integrantes del grupo.
