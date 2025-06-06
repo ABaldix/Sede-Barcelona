@@ -20,15 +20,26 @@ foreach ($u in $usuarios) {
     if ($usuario) {
         Write-Output "Procesando usuario $($usuario.SamAccountName) con DNI $dni"
 
-        # Solo informar si el SamAccountName no coincide con DNI
-        if ($usuario.SamAccountName -ne $dni) {
-            Write-Warning "SamAccountName actual ($($usuario.SamAccountName)) NO coincide con DNI ($dni). No se cambia para evitar conflicto."
+        # Comprobar si SamAccountName ya está en uso por otro usuario
+        $usuarioConSam = Get-ADUser -Filter { SamAccountName -eq $dni } -ErrorAction SilentlyContinue
+
+        $puedeCambiarSam = $true
+
+        if ($usuarioConSam) {
+            if ($usuarioConSam.DistinguishedName -ne $usuario.DistinguishedName) {
+                Write-Warning "SamAccountName '$dni' ya está en uso por otro usuario $($usuarioConSam.SamAccountName). No se cambiará."
+                $puedeCambiarSam = $false
+            }
         }
 
-        # Igual con UserPrincipalName
-        $expectedUPN = "$dni@$domain"
-        if ($usuario.UserPrincipalName -ne $expectedUPN) {
-            Write-Warning "UserPrincipalName actual ($($usuario.UserPrincipalName)) NO coincide con esperado ($expectedUPN). No se cambia para evitar conflicto."
+        if ($puedeCambiarSam -and $usuario.SamAccountName -ne $dni) {
+            # Cambiar SamAccountName y UPN
+            $newUPN = "$dni@$domain"
+            Set-ADUser -Identity $usuario.DistinguishedName -SamAccountName $dni -UserPrincipalName $newUPN
+            Write-Output "SamAccountName y UPN cambiados a $dni y $newUPN"
+        }
+        else {
+            Write-Output "No se cambió SamAccountName (ya está bien o está en uso por otro)"
         }
 
         # Cambiar contraseña y forzar cambio
