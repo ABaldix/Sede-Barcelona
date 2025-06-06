@@ -1,64 +1,67 @@
 Import-Module ActiveDirectory
 
-$csvPath = "C:\ruta\usuarios.csv"
-$defaultPassword = ConvertTo-SecureString "Batoi@1234" -AsPlainText -Force
-
-$domain = "barcelona.lan"
-$baseOU = "OU=Empresa,DC=barcelona,DC=lan"
-
-$usuarios = Import-Csv -Path $csvPath
-
-# Paso 1: Poner SamAccountName y UPN temporales para evitar conflictos
-foreach ($u in $usuarios) {
-    $sede = $u.sede
-    $dept = $u.dept
-    $dni = $u.dni
-    $userOU = "OU=$dept,OU=$sede,$baseOU"
-
-    $usuario = Get-ADUser -Filter { employeeID -eq $dni } -SearchBase $userOU -Properties SamAccountName -ErrorAction SilentlyContinue
-
-    if ($usuario) {
-        $tempSam = "$dni`_temp"
-        $tempUPN = "$tempSam@$domain"
-        try {
-            Set-ADUser -Identity $usuario.DistinguishedName -SamAccountName $tempSam -UserPrincipalName $tempUPN
-            Write-Output "Temporal: SamAccountName y UPN de usuario $dni cambiados a $tempSam / $tempUPN"
-        } catch {
-            Write-Warning "Error cambiando temporal SamAccountName para usuario $dni: $_"
-        }
-    }
-    else {
-        Write-Warning "Usuario con DNI $dni no encontrado en OU $userOU"
-    }
+# Función para limpiar DNI de caracteres no válidos para nombres de usuario
+function CleanDNI {
+    param([string]$dni)
+    return ($dni -replace '[^a-zA-Z0-9]', '')
 }
 
-# Paso 2: Poner SamAccountName, UPN definitivos y DisplayName + cambiar contraseña y forzar cambio
+# Ruta base de las OU
+$baseOU = "DC=barcelona,DC=lan"
+
+# Password por defecto (puedes cambiarla aquí)
+$defaultPassword = ConvertTo-SecureString "Batoi@1234" -AsPlainText -Force
+
+# Dominio para el UPN
+$domain = "barcelona.lan"
+
+# Importar CSV
+$usuarios = Import-Csv -Path ".\usuarios.csv"
+
 foreach ($u in $usuarios) {
-    $sede = $u.sede
-    $dept = $u.dept
-    $dni = $u.dni
-    $nombre = $u.nom
-    $cognom1 = $u.cognom1
-    $cognom2 = $u.cognom2
-    $userOU = "OU=$dept,OU=$sede,$baseOU"
+    if ($u.dept -eq "Barcelona") {
+        $nombre = $u.nom
+        $cognom1 = $u.cognom1
+        $cognom2 = $u.cognom2
+        $dni = $u.dni
+        $sede = $u.sede
+        $dept = $u.dept
 
-    $usuario = Get-ADUser -Filter { employeeID -eq $dni } -SearchBase $userOU -Properties SamAccountName -ErrorAction SilentlyContinue
+        # Limpiar DNI
+        $dniClean = CleanDNI $dni
 
-    if ($usuario) {
-        $newSam = $dni
-        $newUPN = "$dni@$domain"
-        $newDisplayName = "$nombre $cognom1 $cognom2"
+        # Construir la OU donde buscar según sede y departamento
+        # Ejemplo: OU=Gerencia,OU=Empresa,DC=barcelona,DC=lan
+        # Ajusta si la estructura tiene otra raíz
+        $userOU = "OU=$dept,OU=Empresa,$baseOU"
 
-        try {
-            Set-ADUser -Identity $usuario.DistinguishedName -SamAccountName $newSam -UserPrincipalName $newUPN -DisplayName $newDisplayName
-            Set-ADAccountPassword -Identity $usuario.DistinguishedName -Reset -NewPassword $defaultPassword
-            Set-ADUser -Identity $usuario.DistinguishedName -ChangePasswordAtLogon $true
-            Write-Output "Actualizado usuario $dni: SamAccountName, UPN, DisplayName y contraseña"
-        } catch {
-            Write-Warning "Error actualizando usuario $dni: $_"
+        # Buscar usuario por nombre para mostrar (DisplayName)
+        $displayNameSearch = "$nombre $cognom1 $cognom2"
+
+        $usuario = Get-ADUser -Filter {Name -eq $displayNameSearch} -SearchBase $userOU -Properties SamAccountName,UserPrincipalName,DistinguishedName
+
+        if ($usuario) {
+            try {
+                # Modificar usuario
+                Set-ADUser -Identity $usuario.DistinguishedName `
+                    -SamAccountName $dniClean `
+                    -UserPrincipalName "$dniClean@$domain" `
+                    -DisplayName $displayNameSearch
+
+                # Cambiar contraseña
+                Set-ADAccountPassword -Identity $usuario.DistinguishedName -Reset -NewPassword $defaultPassword
+
+                # Forzar cambio de contraseña en el próximo inicio de sesión
+                Set-ADUser -Identity $usuario.DistinguishedName -ChangePasswordAtLogon $true
+
+                Write-Host "Actualizado usuario: $displayNameSearch con SamAccountName y UPN $dniClean"
+            }
+            catch {
+                Write-Warning "Error actualizando usuario $displayNameSearch: $_"
+            }
         }
-    }
-    else {
-        Write-Warning "Usuario con DNI $dni no encontrado en OU $userOU"
+        else {
+            Write-Warning "Usuario no encontrado: $displayNameSearch en OU $userOU"
+        }
     }
 }
