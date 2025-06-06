@@ -3,13 +3,9 @@ Import-Module ActiveDirectory
 $csvPath = "C:\ruta\usuarios.csv"
 $defaultPassword = ConvertTo-SecureString "Batoi@1234" -AsPlainText -Force
 
-# Estructura base del dominio
 $domain = "barcelona.lan"
-
-# Mapeo sede a OU base (según estructura)
 $baseOU = "OU=Empresa,DC=barcelona,DC=lan"
 
-# Leer CSV
 $usuarios = Import-Csv -Path $csvPath
 
 foreach ($u in $usuarios) {
@@ -17,21 +13,23 @@ foreach ($u in $usuarios) {
     $dept = $u.dept
     $dni = $u.dni
 
-    # Construir ruta OU para el usuario (p.ej. "OU=Gerencia,OU=Barcelona,OU=Empresa,DC=barcelona,DC=lan")
     $userOU = "OU=$dept,OU=$sede,$baseOU"
 
-    # Buscar usuario por employeeID (dni) en esa OU
-    $usuario = Get-ADUser -Filter { employeeID -eq $dni } -SearchBase $userOU -Properties SamAccountName -ErrorAction SilentlyContinue
+    $usuario = Get-ADUser -Filter { employeeID -eq $dni } -SearchBase $userOU -Properties SamAccountName, UserPrincipalName -ErrorAction SilentlyContinue
 
     if ($usuario) {
-        Write-Output "Modificando usuario $($usuario.SamAccountName) en sede $sede, dept $dept"
+        Write-Output "Procesando usuario $($usuario.SamAccountName) con DNI $dni"
 
-        # Cambiar SamAccountName y UserPrincipalName
-        $newUPN = "$dni@$domain"
+        # Solo informar si el SamAccountName no coincide con DNI
+        if ($usuario.SamAccountName -ne $dni) {
+            Write-Warning "SamAccountName actual ($($usuario.SamAccountName)) NO coincide con DNI ($dni). No se cambia para evitar conflicto."
+        }
 
-        Set-ADUser -Identity $usuario.DistinguishedName `
-                   -SamAccountName $dni `
-                   -UserPrincipalName $newUPN
+        # Igual con UserPrincipalName
+        $expectedUPN = "$dni@$domain"
+        if ($usuario.UserPrincipalName -ne $expectedUPN) {
+            Write-Warning "UserPrincipalName actual ($($usuario.UserPrincipalName)) NO coincide con esperado ($expectedUPN). No se cambia para evitar conflicto."
+        }
 
         # Cambiar contraseña y forzar cambio
         Set-ADAccountPassword -Identity $usuario.DistinguishedName -Reset -NewPassword $defaultPassword
