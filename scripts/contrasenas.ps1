@@ -1,29 +1,43 @@
 Import-Module ActiveDirectory
 
-# Contraseña fija y segura
+# Ruta del CSV
+$csvPath = "C:\ruta\usuarios.csv"
+
+# Contraseña fija
 $defaultPassword = ConvertTo-SecureString "Batoi@1234" -AsPlainText -Force
 
-# Buscar todos los usuarios dentro de la OU "Empresa" y sus sub-OUs
-$usuarios = Get-ADUser -Filter * -SearchBase "OU=Empresa,DC=barcelona,DC=lan" -SearchScope Subtree -Properties GivenName, Surname
+# Leer el CSV
+$usuarios = Import-Csv -Path $csvPath
 
-foreach ($usuario in $usuarios) {
-    $nombre = $usuario.GivenName
-    $apellido = $usuario.Surname
+foreach ($u in $usuarios) {
+    $dni = $u.DNI
+    $ou = $u.OU
 
-    if ($nombre -and $apellido) {
-        # Crear nombre de usuario: primera letra del nombre + apellido, en minúsculas
-        $username = ($nombre.Substring(0,1) + $apellido).ToLower()
+    if ($dni -and $ou) {
+        # Ruta LDAP de la OU donde buscar
+        $ouPath = "OU=$ou,OU=Empresa,DC=barcelona,DC=lan"
 
-        Write-Output "Usuario: $($usuario.Name) -> Nuevo username: $username"
+        # Buscar usuario por DNI en el OU específico
+        # Suponemos que el atributo LDAP para DNI es 'employeeID' o algún otro. Cambia si tienes otro.
+        $usuario = Get-ADUser -Filter { employeeID -eq $dni } -SearchBase $ouPath -Properties SamAccountName -ErrorAction SilentlyContinue
 
-        # Si quieres cambiar el SamAccountName o UserPrincipalName, descomenta esto:
-        # Set-ADUser -Identity $usuario -SamAccountName $username -UserPrincipalName "$username@barcelona.lan"
+        if ($usuario) {
+            Write-Output "Modificando usuario: $($usuario.SamAccountName) → DNI: $dni"
 
-        # Asignar contraseña y forzar cambio en el primer inicio
-        Set-ADAccountPassword -Identity $usuario -Reset -NewPassword $defaultPassword
-        Set-ADUser -Identity $usuario -ChangePasswordAtLogon $true
+            # Cambiar SamAccountName y UserPrincipalName (nombre de inicio de sesión moderno)
+            Set-ADUser -Identity $usuario.DistinguishedName `
+                       -SamAccountName $dni `
+                       -UserPrincipalName "$dni@barcelona.lan"
+
+            # Restablecer contraseña y forzar cambio
+            Set-ADAccountPassword -Identity $usuario.DistinguishedName -Reset -NewPassword $defaultPassword
+            Set-ADUser -Identity $usuario.DistinguishedName -ChangePasswordAtLogon $true
+        }
+        else {
+            Write-Warning "Usuario no encontrado con DNI '$dni' en OU=$ou"
+        }
     }
     else {
-        Write-Warning "Faltan datos (nombre o apellido) en el usuario: $($usuario.SamAccountName)"
+        Write-Warning "Faltan datos en la fila: $($u | Out-String)"
     }
 }
